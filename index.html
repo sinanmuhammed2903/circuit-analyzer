@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CircuitMind — AI Circuit Explainer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:       #0a0e17;
+      --surface:  #111827;
+      --border:   #1f2d42;
+      --accent:   #00d4ff;
+      --accent2:  #7c3aed;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --mono:     'Space Mono', monospace;
+      --sans:     'Space Grotesk', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .logo-dot {
+      width: 10px; height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    .logo-text { font-family: var(--mono); font-size: 1.1rem; }
+    .logo-text span { color: var(--accent); }
+    .header-tag {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 2rem;
+    }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .panel-label {
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .panel-label::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .panel-label.live::before { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+    /* ── Upload zone ── */
+    .upload-zone { padding: 1.5rem; }
+
+    .field-label {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: block;
+      margin-bottom: 0.45rem;
+    }
+
+    /* API key row */
+    .api-key-wrapper { margin-bottom: 1.25rem; }
+    .api-key-row { display: flex; gap: 0.5rem; }
+
+    input[type="password"], input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.6rem 0.85rem;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); }
+
+    .toggle-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0 0.75rem;
+      font-size: 0.8rem;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .toggle-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Key hint */
+    .key-hint {
+      margin-top: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--muted);
+    }
+    .key-hint a { color: var(--accent); text-decoration: none; }
+    .key-hint a:hover { text-decoration: underline; }
+
+    /* Drop area */
+    .drop-area {
+      border: 1.5px dashed var(--border);
+      border-radius: 8px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.25s, background 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-area:hover, .drop-area.drag-over {
+      border-color: var(--accent);
+      background: rgba(0,212,255,0.04);
+    }
+    .drop-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-icon { width: 44px; height: 44px; margin-bottom: 1rem; opacity: 0.3; }
+    .drop-hint { font-size: 0.84rem; color: var(--muted); text-align: center; }
+    .drop-hint strong { color: var(--text); display: block; margin-bottom: 0.2rem; }
+
+    /* Preview */
+    #preview-wrap { display: none; position: relative; }
+    #preview-img {
+      width: 100%;
+      border-radius: 6px;
+      display: block;
+      max-height: 240px;
+      object-fit: contain;
+      background: var(--bg);
+    }
+    .preview-clear {
+      position: absolute;
+      top: 0.5rem; right: 0.5rem;
+      background: rgba(10,14,23,0.85);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+    .preview-clear:hover { color: #ff6b6b; }
+
+    /* Button */
+    .analyze-btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.9rem;
+      background: linear-gradient(135deg, var(--accent2), #4f46e5);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .analyze-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Results zone ── */
+    .results-zone {
+      padding: 1.5rem;
+      min-height: 360px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Empty */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty-grid {
+      display: grid;
+      grid-template-columns: repeat(5,1fr);
+      gap: 3px;
+      margin-bottom: 0.5rem;
+      opacity: 0.18;
+    }
+    .empty-grid div { width: 18px; height: 18px; border: 1px solid var(--accent); border-radius: 2px; }
+    .empty-state p { font-size: 0.82rem; }
+
+    /* Loading */
+    .loading-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      flex: 1;
+    }
+    .scan-bar { width: 100%; max-width: 200px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .scan-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 2px;
+      animation: scan 1.6s ease-in-out infinite;
+      width: 40%;
+    }
+    @keyframes scan { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
+    .loading-text {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* Error */
+    .error-box {
+      display: none;
+      background: rgba(255,80,80,0.08);
+      border: 1px solid rgba(255,80,80,0.3);
+      border-radius: 8px;
+      padding: 1rem 1.15rem;
+      font-size: 0.82rem;
+      color: #fca5a5;
+      font-family: var(--mono);
+      line-height: 1.6;
+    }
+
+    /* Result cards */
+    #result-content {
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .result-section {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.15rem;
+    }
+    .result-section h3 {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+    .result-section p, .result-section li {
+      font-size: 0.84rem;
+      line-height: 1.68;
+      color: #94a3b8;
+    }
+    .result-section ul { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .raw-result { font-size: 0.83rem; line-height: 1.7; color: #94a3b8; white-space: pre-wrap; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 720px) {
+      main { grid-template-columns: 1fr; padding: 1rem; }
+      header { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-dot"></div>
+  <div class="logo-text">Circuit<span>Mind</span></div>
+  <div class="header-tag">powered by OpenRouter</div>
+</header>
+
+<main>
+
+  <!-- LEFT: Input panel -->
+  <div class="panel">
+    <div class="panel-label live" id="upload-label">input — circuit diagram</div>
+    <div class="upload-zone">
+
+      <!-- API Key input -->
+      <div class="api-key-wrapper">
+        <label class="field-label" for="api-key">OpenRouter API Key</label>
+        <div class="api-key-row">
+          <input type="password" id="api-key" placeholder="sk-or-..." autocomplete="off" />
+          <button class="toggle-btn" id="toggle-key" title="Show/hide">👁</button>
+        </div>
+        <div class="key-hint">
+          Free key → <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai/settings/keys</a>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="drop-area" id="drop-area">
+        <input type="file" id="file-input" accept="image/*" />
+        <svg class="drop-icon" viewBox="0 0 48 48" fill="none">
+          <rect x="6" y="10" width="36" height="28" rx="3" stroke="#00d4ff" stroke-width="1.5"/>
+          <circle cx="17" cy="20" r="3" stroke="#00d4ff" stroke-width="1.5"/>
+          <path d="M6 32l10-8 7 6 7-5 12 9" stroke="#00d4ff" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+        <div class="drop-hint">
+          <strong>Drop circuit image here</strong>
+          or click to browse
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="preview-wrap">
+        <img id="preview-img" alt="Circuit preview" />
+        <button class="preview-clear" id="clear-btn" title="Remove">✕</button>
+      </div>
+
+      <button class="analyze-btn" id="analyze-btn" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        Analyze Circuit
+      </button>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Results panel -->
+  <div class="panel">
+    <div class="panel-label" id="result-label">output — analysis</div>
+    <div class="results-zone">
+
+      <div class="empty-state" id="empty-state">
+        <div class="empty-grid">
+          <div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div>
+          <div></div><div></div><div></div><div></div><div></div>
+        </div>
+        <p>Upload a circuit diagram and click<br/><strong style="color:var(--text)">Analyze Circuit</strong></p>
+      </div>
+
+      <div class="loading-state" id="loading-state">
+        <div class="scan-bar"><div class="scan-fill"></div></div>
+        <div class="loading-text">analyzing circuit...</div>
+      </div>
+
+      <div class="error-box" id="error-box"></div>
+
+      <div id="result-content"></div>
+
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <span>CircuitMind — AI Circuit Analysis</span>
+  <span>OpenRouter — Gemini 2.0 Flash (free)</span>
+</footer>
+
+<script>
+  // ── Element refs ──────────────────────────────────────────────────
+  const fileInput     = document.getElementById('file-input');
+  const dropArea      = document.getElementById('drop-area');
+  const previewWrap   = document.getElementById('preview-wrap');
+  const previewImg    = document.getElementById('preview-img');
+  const clearBtn      = document.getElementById('clear-btn');
+  const analyzeBtn    = document.getElementById('analyze-btn');
+  const apiKeyInput   = document.getElementById('api-key');
+  const toggleKey     = document.getElementById('toggle-key');
+  const emptyState    = document.getElementById('empty-state');
+  const loadingState  = document.getElementById('loading-state');
+  const errorBox      = document.getElementById('error-box');
+  const resultContent = document.getElementById('result-content');
+  const resultLabel   = document.getElementById('result-label');
+
+  let base64Image = null;
+  let imageMime   = null;
+
+  // ── Show/hide API key ─────────────────────────────────────────────
+  toggleKey.addEventListener('click', () => {
+    apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
+  });
+
+  // ── Drag and drop ─────────────────────────────────────────────────
+  dropArea.addEventListener('dragover',  e => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+  dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+  dropArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  // ── Load image and convert to base64 ─────────────────────────────
+  function handleFile(file) {
+    imageMime = file.type;
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      dropArea.style.display = 'none';
+      previewWrap.style.display = 'block';
+      base64Image = e.target.result.split(',')[1];
+      updateBtn();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ── Clear image ───────────────────────────────────────────────────
+  clearBtn.addEventListener('click', () => {
+    base64Image = null; imageMime = null;
+    previewImg.src = '';
+    previewWrap.style.display = 'none';
+    dropArea.style.display = 'flex';
+    fileInput.value = '';
+    analyzeBtn.disabled = true;
+    resetResults();
+  });
+
+  // ── Enable button when both image and key are present ─────────────
+  apiKeyInput.addEventListener('input', updateBtn);
+  function updateBtn() {
+    analyzeBtn.disabled = !(base64Image && apiKeyInput.value.trim().length > 10);
+  }
+
+  function resetResults() {
+    emptyState.style.display = 'flex';
+    loadingState.style.display = 'none';
+    errorBox.style.display = 'none';
+    resultContent.style.display = 'none';
+    resultContent.innerHTML = '';
+    resultLabel.textContent = 'output — analysis';
+  }
+
+  // ── Analyze button ────────────────────────────────────────────────
+  analyzeBtn.addEventListener('click', async () => {
+    if (!base64Image || !apiKeyInput.value.trim()) return;
+
+    emptyState.style.display    = 'none';
+    loadingState.style.display  = 'flex';
+    errorBox.style.display      = 'none';
+    resultContent.style.display = 'none';
+    resultContent.innerHTML     = '';
+    analyzeBtn.disabled         = true;
+    analyzeBtn.textContent      = 'Analyzing...';
+
+    try {
+      const key = apiKeyInput.value.trim();
+      const prompt = [
+        'You are an expert electronics engineer. Analyze this circuit diagram thoroughly.',
+        '',
+        'Return your analysis using EXACTLY these four section headers, in this order:',
+        '',
+        'COMPONENTS:',
+        'List every component you can identify (resistors, capacitors, ICs, transistors, LEDs, connectors, etc.) one per line.',
+        '',
+        'CIRCUIT FUNCTION:',
+        'Explain what this circuit does overall in 2-3 clear sentences.',
+        '',
+        'SIGNAL FLOW:',
+        'Describe step by step how current or signal moves through the circuit.',
+        '',
+        'POTENTIAL ISSUES:',
+        'List any design concerns, missing components, or potential problems you notice.',
+        '',
+        'Be specific and technical but clear. Use plain line breaks between items, no markdown symbols.'
+      ].join('\n');
+
+      // ── OpenRouter API call ───────────────────────────────────────
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key,
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'CircuitMind'
+        },
+        body: JSON.stringify({
+          model: 'google/gemma-4-31b-it:free',
+          max_tokens: 1500,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'image_url',
+                  image_url: { url: 'data:' + imageMime + ';base64,' + base64Image }
+                },
+                {
+                  type: 'text',
+                  text: prompt
+                }
+              ]
+            }
+          ]
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.error) throw new Error(data.error.message);
+      if (!data.choices || !data.choices[0]) throw new Error('No response received. Try again.');
+
+      const text = data.choices[0].message.content;
+
+      loadingState.style.display  = 'none';
+      resultContent.style.display = 'flex';
+      resultLabel.textContent     = 'output — analysis complete ✓';
+      displayResults(text);
+
+    } catch (err) {
+      loadingState.style.display = 'none';
+      errorBox.style.display     = 'block';
+
+      if (err.message.includes('401') || err.message.includes('auth')) {
+        errorBox.textContent = '\u26a0 Invalid API key. Make sure you copied the full key from openrouter.ai — it starts with sk-or-...';
+      } else if (err.message.includes('429')) {
+        errorBox.textContent = '\u26a0 Rate limit hit. Wait 30 seconds and try again.';
+      } else if (err.message.includes('insufficient_quota') || err.message.includes('credits')) {
+        errorBox.textContent = '\u26a0 No credits remaining. Visit openrouter.ai to check your free allowance.';
+      } else {
+        errorBox.textContent = '\u26a0 ' + err.message;
+      }
+    } finally {
+      analyzeBtn.disabled = false;
+      analyzeBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Analyze Circuit';
+      updateBtn();
+    }
+  });
+
+  // ── Parse response into section cards ─────────────────────────────
+  function displayResults(text) {
+    const sections = [
+      { key: 'COMPONENTS',       icon: '\u2b21', label: 'Components Identified' },
+      { key: 'CIRCUIT FUNCTION', icon: '\u25c8', label: 'Circuit Function'       },
+      { key: 'SIGNAL FLOW',      icon: '\u2192', label: 'Signal Flow'            },
+      { key: 'POTENTIAL ISSUES', icon: '\u26a0', label: 'Potential Issues'       },
+    ];
+
+    let html = '';
+
+    sections.forEach((section, i) => {
+      const startMarker = section.key + ':';
+      const nextMarker  = sections[i + 1] ? sections[i + 1].key + ':' : null;
+
+      const startIdx = text.indexOf(startMarker);
+      if (startIdx === -1) return;
+
+      const contentStart = startIdx + startMarker.length;
+      const endIdx = nextMarker ? text.indexOf(nextMarker) : text.length;
+      const content = text.substring(contentStart, endIdx !== -1 ? endIdx : undefined).trim();
+      if (!content) return;
+
+      const lines = content.split('\n').map(l => l.replace(/^[-\u2022*]\s*/, '').trim()).filter(Boolean);
+      const isMultiLine = lines.length > 1;
+
+      const inner = isMultiLine
+        ? '<ul>' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul>'
+        : '<p>' + lines[0] + '</p>';
+
+      html += '<div class="result-section"><h3>' + section.icon + ' ' + section.label + '</h3>' + inner + '</div>';
+    });
+
+    if (!html) {
+      html = '<div class="result-section"><p class="raw-result">' + text + '</p></div>';
+    }
+
+    resultContent.innerHTML = html;
+  }
+</script>
+</body>
+</html>
